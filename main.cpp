@@ -30,6 +30,8 @@ void iteracionMontecarlo(const MobMatrix& T, double beta, double p1, double p2);
 static const std::string state = "ny";
 int main(int argc, char* argv[]){
 
+    //PRUEBAS BRANCHES
+
     std::string citPat = "citiesMult/"+ state +"/final/Citypatch.txt";
     std::string mobNet = "citiesMult/"+ state +"/final/mobnetwork.txt";
     std::string popAr = "citiesMult/"+ state +"/final/Poparea.txt";
