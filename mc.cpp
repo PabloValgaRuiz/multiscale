@@ -26,7 +26,7 @@ int mc(const MobMatrix& T, const std::string state){   //NO VALIDO PARA SIS
     int hilos = 24;
 
     //std::ofstream fileMC("out/MC_00_p" + name + ".txt");
-    std::ofstream fileMC("out/" + state + "/montecarlo_p02.txt");
+    std::ofstream fileMC("out_mobdef/" + state + "/montecarlo_p02.txt");
     std::cout << "pI = " << pI << std::endl;
     std::cout << "pC = " << pC << std::endl;
 

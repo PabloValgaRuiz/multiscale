@@ -3,6 +3,7 @@
 #include <vector>
 #include "MobMatrix.hpp"
 #include <cmath>
+#include <stdexcept>
 
 class MarkovDistMult{
 public: //private
@@ -11,18 +12,22 @@ public: //private
     double beta;
     double beta0;
     double mu = 0.2;
-    double kD = 8, kN = 3; //media de contactos por agente
-    double zD, zN; //normalizacion
+    double kW = 8, kH = 3, kN = 3; //media de contactos por agente
+    double zW, zH, zN; //normalizacion
     std::vector<std::vector<double>> rho, ProbInf;
-    std::vector<double> IeffDia, IeffNoche, neff, PD, PN, fvector, sigma;
+    std::vector<double> IeffW, IeffH, IeffNoche, neffW, neffH, PW, PH, PN, fWvector, fHvector, sigma;
     
     void calculaIeffneff(const MobMatrix& T){
-        neff.clear();
-        IeffDia.clear();
+        neffW.clear();
+        neffH.clear();
+        IeffW.clear();
+        IeffH.clear();
         IeffNoche.clear();
         
-        neff.resize(T.N, 0);
-        IeffDia.resize(T.N, 0);
+        neffW.resize(T.N, 0);
+        neffH.resize(T.N, 0);
+        IeffW.resize(T.N, 0);
+        IeffH.resize(T.N,0);
         IeffNoche.resize(T.N, 0);
 
         for(int i = 0; i < T.N; i++){
@@ -30,18 +35,18 @@ public: //private
 
                 if(T.cityPatch[i] == T.cityPatch[T.Mvecinos[i][j]]){
 
-                    neff[T.Mvecinos[i][j]] += pI * T.Mpesos[i][j];
-                    IeffDia[T.Mvecinos[i][j]] += pI * T.Mpesos[i][j] * rho[i][j];
+                    neffW[T.Mvecinos[i][j]] += pI * T.Mpesos[i][j];
+                    IeffW[T.Mvecinos[i][j]] += pI * T.Mpesos[i][j] * rho[i][j];
 
-                    neff[i] += (1 - pI) * T.Mpesos[i][j];
-                    IeffDia[i] += (1 - pI) * T.Mpesos[i][j] * rho[i][j];
+                    neffH[i] += (1 - pI) * T.Mpesos[i][j];
+                    IeffH[i] += (1 - pI) * T.Mpesos[i][j] * rho[i][j];
                 }
                 else{
-                    neff[T.Mvecinos[i][j]] += pC * T.Mpesos[i][j];
-                    IeffDia[T.Mvecinos[i][j]] += pC * T.Mpesos[i][j] * rho[i][j];
+                    neffW[T.Mvecinos[i][j]] += pC * T.Mpesos[i][j];
+                    IeffW[T.Mvecinos[i][j]] += pC * T.Mpesos[i][j] * rho[i][j];
 
-                    neff[i] += (1 - pC) * T.Mpesos[i][j];
-                    IeffDia[i] += (1 - pC) * T.Mpesos[i][j] * rho[i][j];
+                    neffH[i] += (1 - pC) * T.Mpesos[i][j];
+                    IeffH[i] += (1 - pC) * T.Mpesos[i][j] * rho[i][j];
                 }
             }
         }
@@ -54,9 +59,14 @@ public: //private
 
     void calculaP(const MobMatrix& T){
         for(int i = 0; i < T.N; i++){
-            if(neff[i] != 0)
-                PD[i] = 1 - pow(1 - beta * IeffDia[i]/neff[i], zD * fvector[i]);
-            else PD[i] = 0;
+            if(neffW[i] != 0)
+                PW[i] = 1 - pow(1 - beta * IeffW[i]/neffW[i], zW * fWvector[i]);
+            else PW[i] = 0;
+
+            if(neffH[i] != 0)
+                PH[i] = 1 - pow(1 - beta * IeffH[i]/neffH[i], zH * fHvector[i]);
+            else PH[i] = 0;
+
             if(T.population[i] != 0)
                 PN[i] = 1 - pow(1 - beta * IeffNoche[i]/T.population[i], zN * sigma[i]);
             else PN[i] = 0;
@@ -68,10 +78,10 @@ public: //private
         for(int i = 0; i < T.N; i++){
             for(int j = 0; j < T.vecinos[i]; j++){
                 if(T.cityPatch[i] == T.cityPatch[T.Mvecinos[i][j]]){
-                    ProbInf[i][j] = (1 - pI) * (PD[i] + (1 - PD[i])*PN[i]) + pI * (PD[T.Mvecinos[i][j]] + (1 - PD[T.Mvecinos[i][j]]) * PN[i]);
+                    ProbInf[i][j] = (1 - pI) * (PH[i] + (1 - PH[i])*PN[i]) + pI * (PW[T.Mvecinos[i][j]] + (1 - PW[T.Mvecinos[i][j]]) * PN[i]);
                 }
                 else{
-                    ProbInf[i][j] = (1 - pC) * (PD[i] + (1 - PD[i])*PN[i]) + pC * (PD[T.Mvecinos[i][j]] + (1 - PD[T.Mvecinos[i][j]]) * PN[i]);
+                    ProbInf[i][j] = (1 - pC) * (PH[i] + (1 - PH[i])*PN[i]) + pC * (PW[T.Mvecinos[i][j]] + (1 - PW[T.Mvecinos[i][j]]) * PN[i]);
                 }
             }
             //std::cout << ProbInf[i] << std::endl;
@@ -97,69 +107,80 @@ public: //private
     void calcFZ(const MobMatrix& T){
         
         // z CONSTANTE CON P=0
-        fvector.clear();
-        fvector.resize(T.N);
+        fWvector.clear();
+        fHvector.clear();
+        fWvector.resize(T.N);
+        fHvector.resize(T.N);
         sigma.clear();
         sigma.resize(T.N);
+
+        //p=0 for home contacts, p=1 for work contacts
+        std::vector<double> neffWtemp, neffHtemp;
+        neffWtemp.resize(T.N, 0);   neffHtemp.resize(T.N, 0);
         for(int i = 0; i < T.N; i++){
-            fvector[i] = f(T.population[i], T.area[i]);
+            for(int j = 0; j < T.vecinos[i]; j++){
+                neffWtemp[T.Mvecinos[i][j]] += T.Mpesos[i][j];
+                neffHtemp[i] += T.Mpesos[i][j];
+            }
+        }
+
+        for(int i = 0; i < T.N; i++){
+            fWvector[i] = f(neffWtemp[i], T.area[i]);
+            fHvector[i] = f(neffHtemp[i], T.area[i]);
             sigma[i] = 1;
         }
 
-        double temp = 0, tempN = 0;
+        double tempW = 0, tempH = 0, tempN = 0;
         for(int i = 0; i < T.N; i++){
-            temp += T.population[i] * fvector[i];
+            tempW += neffWtemp[i] * fWvector[i];
+            tempH += neffHtemp[i] * fHvector[i];
             tempN += T.population[i] * sigma[i];
         }
-        zD = T.Pob * kD / temp;
+
+        if(tempW == 0 || tempH == 0 || tempN == 0)
+            throw std::runtime_error("zW, zH or zN = infinity");
+        zW = T.Pob * kW / tempW;
+        zH = T.Pob * kH / tempH;
         zN = T.Pob * kN / tempN;
 
         for(int i = 0; i < T.N; i++){
-            //Calcular fvector para P distinto de cero finalmente
-            fvector[i] = f(neff[i], T.area[i]);
+            //Calcular fvector para p distinto de cero finalmente
+            fWvector[i] = f(neffW[i], T.area[i]);
+            fHvector[i] = f(neffH[i], T.area[i]);
+            sigma[i] = 1;
         }
 
-        //---------------------------------------------------------
-
-        // z VARIANDO CON P
-        // fvector.clear();
-        // fvector.resize(T.N);
-        // sigma.clear();
-        // sigma.resize(T.N);
-        // for(int i = 0; i < T.N; i++){
-        //     fvector[i] = f(neff[i], T.area[i]);
-        //     sigma[i] = 1;
-        // }
-        // double temp = 0;
-        // double tempN = 0;
-        // for(int i = 0; i < T.N; i++){
-        //     temp += neff[i] * fvector[i];
-        //     tempN += T.population[i] * sigma[i];
-        // }
-        // if(temp != 0) zD = T.Pob * kD / temp;
-        // else zD = 0;
-        // if(tempN != 0) zN = T.Pob * kN / tempN;
-        // else zN = 0;
     }
 
     void calculaBeta0(const MobMatrix& T){
-        double temp = 0, tempN = 0, F = 0, SIGMA = 0;
+
+        //In the redefined mobility model, there is no people at work on p = 0, so it's always
+        //the people at home that have contacts
+
+        double tempH = 0, tempN = 0, FH = 0, SIGMA = 0;
 
         for(int i = 0; i < T.N; i++){
-            temp += T.population[i] * f(T.population[i], T.area[i]);
+            tempH += T.population[i] * f(T.population[i], T.area[i]);
         }
-        double ztemp = T.Pob * kD / temp;
+        double zHtemp = 0;
+        if(tempH != 0)
+            zHtemp = T.Pob * kH / tempH;
         double zNtemp = zN;
 
-        temp = tempN = 0;
+        tempH = tempN = 0;
         int I = 0;
         for(int i = 0; i < T.N; i++){
-            temp = f(T.population[i], T.area[i]);
+            tempH = f(T.population[i], T.area[i]);
             tempN = sigma[i];
-            if(ztemp*temp + zNtemp*tempN > ztemp*F + zNtemp*SIGMA){F = temp; SIGMA = tempN; I = i;}
+            if(zHtemp*tempH + zNtemp*tempN > zHtemp*FH + zNtemp*SIGMA){
+                FH = tempH; SIGMA = tempN; I = i;
+            }
         }
-        beta0 = mu/(F * ztemp + SIGMA * zNtemp);
-        //std::cout << I << " " << ztemp << " " << T.population[I] << "   " << F << " " << beta0 << std::endl;
+        if(FH * zHtemp + SIGMA * zNtemp != 0)
+            beta0 = mu/(FH * zHtemp + SIGMA * zNtemp);
+        else
+            throw std::runtime_error("Beta_0 = infinity");
+        //std::cout << I << "\t" << zHtemp << "\t" << FH << "\t" << zNtemp << "\t" << SIGMA << "\t" << zH << "\t" <<  beta0 << std::endl;
     }
 
 public:
@@ -175,10 +196,13 @@ public:
             rho[i].resize(T.vecinos[i]);
             ProbInf[i].resize(T.vecinos[i]);
         }
-        IeffDia.resize(T.N);
+        IeffW.resize(T.N);
+        IeffH.resize(T.N);
         IeffNoche.resize(T.N);
-        neff.resize(T.N);
-        PD.resize(T.N);
+        neffW.resize(T.N);
+        neffH.resize(T.N);
+        PW.resize(T.N);
+        PH.resize(T.N);
         PN.resize(T.N);
         calculaIeffneff(T);
         calcFZ(T);
@@ -232,10 +256,12 @@ public:
     const double& get_mu() const {return mu;}
     const double& get_pI() const {return pI;}
     const double& get_pC() const {return pC;}
-    const std::vector<double>& get_fvector() const {return fvector;}
+    const std::vector<double>& get_fWvector() const {return fWvector;}
+    const std::vector<double>& get_fHvector() const {return fHvector;}
     const std::vector<double>& get_sigma() const {return sigma;}
-    const double& get_zD() const {return zD;}
+    const double& get_zW() const {return zW;}
+    const double& get_zH() const {return zH;}
     const double& get_zN() const {return zN;}
-    const std::vector<double>& get_neff() const {return neff;}
-
+    const std::vector<double>& get_neffW() const {return neffW;}
+    const std::vector<double>& get_neffH() const {return neffH;}
 };

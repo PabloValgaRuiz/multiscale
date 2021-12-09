@@ -38,7 +38,7 @@ int main(int argc, char* argv[]){
 
     const MobMatrix T{citPat, mobNet, popAr};
 
-    heatmap(T);
+    mc(T, state);
 
     // double pI, pC;
     // std::cin >> pI >> pC;
@@ -80,7 +80,7 @@ int threshold_heatmap(const MobMatrix& T){
     heatMap.resize(65 - 1); //Numero de pI's //2^7 + 1 =  129
     for(auto& i : heatMap){i.resize(65 - 1);} //Numero de pC's
 
-    std::ofstream fileMk("out/"+ state +"/thresholds.txt");
+    std::ofstream fileMk("out_mobdef/"+ state +"/thresholds.txt");
     std::vector<std::future<void>> futures;
     double i = 0;
     threads = 0;
@@ -170,7 +170,7 @@ int heatmap(const MobMatrix& T){
     heatMap.resize(129); //Numero de p's //2^7 + 1 = 129
     for(auto& i : heatMap){i.resize(129);} //Numero de lambdas
     
-    std::ofstream fileMk("out/"+ state +"/heatmap_pIpC.txt");
+    std::ofstream fileMk("out_mobdef/"+ state +"/heatmap_pIpC.txt");
     std::vector<std::future<void>> futures;
     double i = 0;
     threads = 0;
@@ -246,25 +246,9 @@ void markov(const MobMatrix& T, double beta, double p1, double p2, int tiempo)
         exit(1);
     }
     
-    std::ofstream file("out/"+ state +"/markov.txt");
+    std::ofstream file("out_mobdef/"+ state +"/markov.txt");
     for(int i = 0; i < T.N; i++){
         file << i << "\t" << markov.infectados[i] << std::endl;
     }
     file.close();
-}
-
-void iteracionMontecarlo(const MobMatrix& T, double beta, double p1, double p2){
-
-    MCDistMult montecarlo(p1, p2, T);
-    montecarlo.setBeta(beta);
-    montecarlo.inicializar(0.0002);
-    for(int t = 0; t < 300; t++){
-        montecarlo.iteracion(T);
-    }
-    for(int t = 0; t < 500; t++){
-
-    }
-
-
-
 }

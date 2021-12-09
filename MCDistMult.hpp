@@ -7,15 +7,17 @@
 #include <stdexcept>
 
 enum Compartment {S, I};
+enum ContactPlace {H, W};
 struct Individual{
     Compartment state{S};
     int Org{};
     int Des{};
     int Desplazamiento{};
+    ContactPlace contactPlace{};
 
     //Constructor de individuos
-    Individual(Compartment _state, size_t _Org, size_t _Des, size_t _Desplazamiento)
-    :state{_state}, Org{_Org}, Des{_Des}, Desplazamiento{_Desplazamiento}{}
+    Individual(Compartment _state, size_t _Org, size_t _Des, size_t _Desplazamiento, ContactPlace _contactPlace)
+    :state{_state}, Org{_Org}, Des{_Des}, Desplazamiento{_Desplazamiento}, contactPlace{_contactPlace}{}
 };
 
 class MCDistMult{
@@ -25,12 +27,12 @@ public: //private
     double beta;
     double beta0;
     double mu = 0.2;
-    double kD = 8, kN = 3; //media de contactos por agente
-    double zD, zN; //normalizacion
+    double kW = 8, kH = 3, kN = 3; //media de contactos por agente
+    double zW, zH, zN; //normalizacion
 
-    std::vector<double> fvector, sigma;
-    std::vector<double> PD, PN;
-    std::vector <int> IeffDia, IeffNoche, neff;
+    std::vector<double> fWvector, fHvector, sigma;
+    std::vector<double> PW, PH, PN;
+    std::vector <int> IeffW, IeffH, IeffNoche, neffW, neffH;
     std::vector<Individual> individuals;
 
     //Calcular la probabilidad de infectarse al contactar con un agente
@@ -38,12 +40,16 @@ public: //private
     //agentes con la que interactua (el exponente f*z)
     void calculaP(const MobMatrix& T){
         for(int i = 0; i < T.N; i++){
-            if(neff[i] != 0)
-                PD[i] = 1 - pow(1 - (beta * IeffDia[i])/neff[i], zD*fvector[i]);
-            else PD[i] = 0;
+            if(neffW[i] != 0)
+                PW[i] = 1 - pow(1 - beta * IeffW[i]/neffW[i], zW * fWvector[i]);
+            else PW[i] = 0;
+
+            if(neffH[i] != 0)
+                PH[i] = 1 - pow(1 - beta * IeffH[i]/neffH[i], zH * fHvector[i]);
+            else PH[i] = 0;
 
             if(T.population[i] != 0)
-                PN[i] = 1 - pow(1 - (beta * IeffNoche[i])/T.population[i], zN*sigma[i]);
+                PN[i] = 1 - pow(1 - beta * IeffNoche[i]/T.population[i], zN * sigma[i]);
             else PN[i] = 0;
         }
     }
@@ -51,15 +57,22 @@ public: //private
     //Calcular la cantidad total de infectados tanto en el destino
     //como en el origen
     void calculaIeffneff(){
-        for(int i = 0; i < IeffDia.size(); i++){
-            IeffDia[i] = IeffNoche[i] = neff[i] = 0;
+        for(int i = 0; i < IeffW.size(); i++){
+            IeffW[i] = IeffH[i] = IeffNoche[i] = neffW[i] = neffH[i] = 0;
         }
         for(const Individual& k : individuals){
             if(k.state == I){
-                IeffDia[k.Desplazamiento]++;
+                if(k.contactPlace == W)
+                    IeffW[k.Desplazamiento]++;
+                else
+                    IeffH[k.Desplazamiento]++;
+
                 IeffNoche[k.Org]++;
             }
-            neff[k.Desplazamiento]++;
+            if(k.contactPlace == W)
+                neffW[k.Desplazamiento]++;
+            else
+                neffH[k.Desplazamiento]++;
         }
     }
 
@@ -72,16 +85,24 @@ public: //private
         std::uniform_real_distribution<double> dist(0.0, 1.0);
         for(Individual& k : individuals){
             if(T.cityPatch[k.Org] == T.cityPatch[k.Des]){
-                if (dist(mt) < pI)		                //SI se desplaza
+                if (dist(mt) < pI){		                //SI se desplaza
                     k.Desplazamiento = k.Des;
-                else									//NO se desplaza
+                    k.contactPlace = W;    
+                }
+                else{									//NO se desplaza
                     k.Desplazamiento = k.Org;
+                    k.contactPlace = H;    
+                }
             }
             else{
-                if (dist(mt) < pC)		                //SI se desplaza
+                if (dist(mt) < pC){		                //SI se desplaza
                     k.Desplazamiento = k.Des;
-                else									//NO se desplaza
+                    k.contactPlace = W;    
+                }
+                else{									//NO se desplaza
                     k.Desplazamiento = k.Org;
+                    k.contactPlace = H;
+                }
             }
         }
     }
@@ -107,80 +128,81 @@ public: //private
     //Calcular inicialmente fvector y las funciones de normalizacion zD y zN
     void calcFZ(const MobMatrix& T){
         // z CONSTANTE CON P=0
-        fvector.clear();
-        fvector.resize(T.N);
+        fWvector.clear();
+        fHvector.clear();
+        fWvector.resize(T.N);
+        fHvector.resize(T.N);
         sigma.clear();
         sigma.resize(T.N);
+
+        //p=0 for home contacts, p=1 for work contacts
+        std::vector<int> neffWtemp, neffHtemp;
+        neffWtemp.resize(T.N, 0);   neffHtemp.resize(T.N, 0);
+        for(Individual k : individuals){
+            neffWtemp[k.Des]++;
+            neffHtemp[k.Org]++;
+        }
+
         for(int i = 0; i < T.N; i++){
-            fvector[i] = f(neff[i], T.area[i]);
+            fWvector[i] = f(neffWtemp[i], T.area[i]);
+            fHvector[i] = f(neffHtemp[i], T.area[i]);
             sigma[i] = 1;
         }
 
-        double temp = 0, tempN = 0;
+        double tempW = 0, tempH = 0, tempN = 0;
         for(int i = 0; i < T.N; i++){
-            //Para P=0 se usa la poblacion de i
-            temp += T.population[i] * f(T.population[i], T.area[i]);
+            tempW += neffWtemp[i] * fWvector[i];
+            tempH += neffHtemp[i] * fHvector[i];
             tempN += T.population[i] * sigma[i];
         }
-        zD = T.Pob * kD / temp;
+
+        if(tempW == 0 || tempH == 0 || tempN == 0)
+            throw std::runtime_error("zW, zH or zN = infinity");
+        zW = T.Pob * kW / tempW;
+        zH = T.Pob * kH / tempH;
         zN = T.Pob * kN / tempN;
 
-
-
-        // z VARIANDO CON P
-        // fvector.clear();
-        // fvector.resize(T.N);
-        // sigma.clear();
-        // sigma.resize(T.N);
-        // for(int i = 0; i < T.N; i++){
-        //     fvector[i] = f(neff[i], T.area[i]);
-        //     sigma[i] = 1;
-        // }
-        // double temp = 0;
-        // double tempN = 0;
-        // for(int i = 0; i < T.N; i++){
-        //     temp += neff[i] * fvector[i];
-        //     tempN += T.population[i] * sigma[i];
-        // }
-        // if(temp != 0) zD = T.Pob * kD / temp;
-        // else zD = 0;
-        // if(tempN != 0) zN = T.Pob * kN / tempN;
-        // else zN = 0;
+        //Calcular fvector para p distinto de cero finalmente
+        for(int i = 0; i < T.N; i++){
+            fWvector[i] = f(neffW[i], T.area[i]);
+            fHvector[i] = f(neffH[i], T.area[i]);
+            sigma[i] = 1;
+        }
     }
 
     //Calcular el umbral epidemico para pI=pC=0
     void calculaBeta0(const MobMatrix& T){
-        double temp = 0, tempN = 0, F = 0, SIGMA = 0;
+
+        //In the redefined mobility model, there is no people at work on p = 0, so it's always
+        //the people at home that have contacts
+
+        double tempH = 0, tempN = 0, FH = 0, SIGMA = 0;
 
         for(int i = 0; i < T.N; i++){
-            temp += T.population[i] * f(T.population[i], T.area[i]);
+            tempH += T.population[i] * f(T.population[i], T.area[i]);
         }
-        double ztemp = T.Pob * kD / temp;
+        double zHtemp = 0;
+        if(tempH != 0)
+            zHtemp = T.Pob * kH / tempH;
         double zNtemp = zN;
 
-        temp = tempN = 0;
+        tempH = tempN = 0;
         int I = 0;
         for(int i = 0; i < T.N; i++){
-            temp = f(T.population[i], T.area[i]);
+            tempH = f(T.population[i], T.area[i]);
             tempN = sigma[i];
-            if(ztemp*temp + zNtemp*tempN > ztemp*F + zNtemp*SIGMA){F = temp; SIGMA = tempN; I = i;}
+            if(zHtemp*tempH + zNtemp*tempN > zHtemp*FH + zNtemp*SIGMA){
+                FH = tempH; SIGMA = tempN; I = i;
+            }
         }
-        beta0 = mu/(F * ztemp + SIGMA * zNtemp);
+        if(FH * zHtemp + SIGMA * zNtemp != 0)
+            beta0 = mu/(FH * zHtemp + SIGMA * zNtemp);
+        else
+            throw std::runtime_error("Beta_0 = infinity");
     }
 
 
 public:
-    //GETTERS
-    const double& get_Beta0() const {return beta0;}
-    const double& get_mu() const {return mu;}
-    const double& get_pI() const {return pI;}
-    const double& get_pC() const {return pC;}
-    const std::vector<double>& get_fvector() const {return fvector;}
-    const std::vector<double>& get_sigma() const {return sigma;}
-    const double& get_zD() const {return zD;}
-    const double& get_zN() const {return zN;}
-    const std::vector<int>& get_neff() const {return neff;}
-
     //Fraccion de infectados en cada nodo de origen
     //El algoritmo no utiliza esta variable, es solo para su visibilidad publica
     std::vector<double> infectados;
@@ -199,16 +221,19 @@ public:
         for(int i = 0; i < T.N; i++){
             for(int j = 0; j < T.vecinos[i]; j++){
                 for(int k = 0; k < T.Mpesos[i][j]; k++){
-                    individuals.emplace_back(S, i, T.Mvecinos[i][j], i);
+                    individuals.emplace_back(S, i, T.Mvecinos[i][j], i, H);
                 }
             }
         }
         if(individuals.size() != T.Pob) throw std::logic_error{"MCDistMult: Population doesn't match."};
 
-        IeffDia.resize(T.N);    
+        IeffW.resize(T.N);
+        IeffH.resize(T.N);
         IeffNoche.resize(T.N);
-        neff.resize(T.N);
-        PD.resize(T.N);
+        neffW.resize(T.N);
+        neffH.resize(T.N);
+        PW.resize(T.N);
+        PH.resize(T.N);
         PN.resize(T.N);
         calculaIeffneff();
         calcFZ(T);
@@ -274,13 +299,29 @@ public:
                     //     }
                     // }
 
-                    if(dist(mt) < PD[k.Desplazamiento])
-                        k.state = I;
-                    else{
-                        if(dist(mt) < PN[k.Org]){
+                    if(k.contactPlace == W){
+                        if(dist(mt) < PW[k.Desplazamiento]){
                             k.state = I;
                         }
+                        else{
+                            if(dist(mt) < PN[k.Org]){
+                                k.state = I;
+                        }
                     }
+                    }
+                    else{
+                        if(dist(mt) < PH[k.Desplazamiento]){
+                            k.state = I;
+                        }
+                        else{
+                            if(dist(mt) < PN[k.Org]){
+                                k.state = I;
+                        }
+                    }
+                    }
+
+                    
+                    
                     break;
                 case I:
                     if(dist(mt) < mu)
@@ -315,6 +356,20 @@ public:
         }
         if(T.Pob != 0)
             infectadosTotal /= T.Pob;
-    }    
+    }
+
+    //GETTERS
+    const double& get_Beta0() const {return beta0;}
+    const double& get_mu() const {return mu;}
+    const double& get_pI() const {return pI;}
+    const double& get_pC() const {return pC;}
+    const std::vector<double>& get_fWvector() const {return fWvector;}
+    const std::vector<double>& get_fHvector() const {return fHvector;}
+    const std::vector<double>& get_sigma() const {return sigma;}
+    const double& get_zW() const {return zW;}
+    const double& get_zH() const {return zH;}
+    const double& get_zN() const {return zN;}
+    const std::vector<int>& get_neffW() const {return neffW;}
+    const std::vector<int>& get_neffH() const {return neffH;}
 };
 
