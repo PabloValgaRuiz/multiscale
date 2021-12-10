@@ -91,7 +91,7 @@ public: //private
                 }
                 else{									//NO se desplaza
                     k.Desplazamiento = k.Org;
-                    k.contactPlace = H;    
+                    k.contactPlace = H;
                 }
             }
             else{
@@ -306,8 +306,8 @@ public:
                         else{
                             if(dist(mt) < PN[k.Org]){
                                 k.state = I;
+                            }
                         }
-                    }
                     }
                     else{
                         if(dist(mt) < PH[k.Desplazamiento]){
@@ -316,12 +316,9 @@ public:
                         else{
                             if(dist(mt) < PN[k.Org]){
                                 k.state = I;
+                            }
                         }
                     }
-                    }
-
-                    
-                    
                     break;
                 case I:
                     if(dist(mt) < mu)
@@ -343,19 +340,27 @@ public:
 
     //Contar la fraccion de infectados en cada nodo de origen y la total
     void calcInfectados(const MobMatrix& T){
-        calculaIeffneff();
-
         infectados.clear();
         infectados.resize(T.N, 0);
         infectadosTotal = 0;
-        for(int i = 0; i < T.N; i++){
-            infectados[i] = IeffNoche[i];
-            infectadosTotal += infectados[i];
-            if(T.population[i] != 0)
-                infectados[i] /= T.population[i];
+
+        for(Individual k : individuals){
+            if(k.state == I){
+                infectados[k.Org]++;
+                infectadosTotal++;
+            }
         }
-        if(T.Pob != 0)
+        for(int i = 0; i < T.N; i++){
+            if(T.population[i] != 0){
+                infectados[i] /= T.population[i];
+            }
+            else{
+                infectados[i] = 0;
+            }
+        }
+        if(T.Pob != 0){
             infectadosTotal /= T.Pob;
+        }
     }
 
     //GETTERS

@@ -19,14 +19,14 @@ static void iteracionesMC(const MobMatrix& T, double &infectados, double beta, d
 }
 int mc(const MobMatrix& T, const std::string state){   //NO VALIDO PARA SIS
 
-    double pI = 0.125;
-    double pC = 0.125;
+    double pI = 1;
+    double pC = 1;
 
     int tiempo = 400;
     int hilos = 24;
 
     //std::ofstream fileMC("out/MC_00_p" + name + ".txt");
-    std::ofstream fileMC("out_mobdef/" + state + "/montecarlo_p02.txt");
+    std::ofstream fileMC("out_mobdef/" + state + "/montecarlo_p10.txt");
     std::cout << "pI = " << pI << std::endl;
     std::cout << "pC = " << pC << std::endl;
 
@@ -38,9 +38,9 @@ int mc(const MobMatrix& T, const std::string state){   //NO VALIDO PARA SIS
             futures.push_back(std::async(std::launch::async, iteracionesMC, std::ref(T), std::ref(infectados), beta, pI, pC, tiempo, i));
         futures.clear();
 
-        fileMC << beta << " " << infectados/hilos << std::endl;
+        fileMC << pI << " " << beta << " " << infectados/hilos << std::endl;
     }
-    fileMC.close();    
+    fileMC.close();
 
     return 0;
 }

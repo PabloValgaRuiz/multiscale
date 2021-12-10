@@ -74,7 +74,7 @@ public: //private
     }
 
     void calculaProbInf(const MobMatrix& T){
-        double prov1, prov2;
+
         for(int i = 0; i < T.N; i++){
             for(int j = 0; j < T.vecinos[i]; j++){
                 if(T.cityPatch[i] == T.cityPatch[T.Mvecinos[i][j]]){
@@ -84,7 +84,6 @@ public: //private
                     ProbInf[i][j] = (1 - pC) * (PH[i] + (1 - PH[i])*PN[i]) + pC * (PW[T.Mvecinos[i][j]] + (1 - PW[T.Mvecinos[i][j]]) * PN[i]);
                 }
             }
-            //std::cout << ProbInf[i] << std::endl;
         }
     }
 

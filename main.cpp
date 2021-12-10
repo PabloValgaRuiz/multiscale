@@ -27,7 +27,7 @@ void iteracionHeatMap(const MobMatrix& T, double beta, double p1, double p2, int
 int heatmap(const MobMatrix& T);
 void iteracionMontecarlo(const MobMatrix& T, double beta, double p1, double p2);
 
-static const std::string state = "ny";
+static const std::string state = "fl";
 int main(int argc, char* argv[]){
 
     //PRUEBAS BRANCHES
@@ -38,7 +38,9 @@ int main(int argc, char* argv[]){
 
     const MobMatrix T{citPat, mobNet, popAr};
 
-    mc(T, state);
+    markov(T, 1.1, 0.5, 0.5, 300);
+
+    
 
     // double pI, pC;
     // std::cin >> pI >> pC;
