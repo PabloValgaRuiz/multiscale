@@ -27,7 +27,7 @@ void iteracionHeatMap(const MobMatrix& T, double beta, double p1, double p2, int
 int heatmap(const MobMatrix& T);
 void iteracionMontecarlo(const MobMatrix& T, double beta, double p1, double p2);
 
-static const std::string state = "ny";
+static const std::string state = "tx";
 int main(int argc, char* argv[]){
 
     std::string citPat = "citiesMult/"+ state +"/final/Citypatch.txt";
@@ -36,33 +36,33 @@ int main(int argc, char* argv[]){
 
     const MobMatrix T{citPat, mobNet, popAr};
 
-    heatmap(T);
+    //threshold_heatmap(T);
 
-    // double pI, pC;
-    // std::cin >> pI >> pC;
-    // std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    double pI, pC;
+    std::cin >> pI >> pC;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    // MarkovDistMult markov{pI,pC,T};
-    // auto par = iteracion(T, markov);
-    // std::cout << "done" << std::endl;
-    // std::ofstream file{"out/" + state + "/eigenvectorDiaNoche.txt"};
-    // std::ofstream file2{"out/tx/vectorentero.txt"};
-    // double temp = 0;
-    // for(int i = 0; i < T.N; i++){
-    //     temp = 0;
-    //     for(int j = 0; j < T.N; j++){
-    //         file2 << i << "\t" << j << "\t" << par.first[i*T.N + j] << std::endl;
-    //     }
-    //     for(int j = 0; j < T.vecinos[i]; j++){
-    //         temp += par.first(i*T.N + T.Mvecinos[i][j]) * T.Mpesos[i][j];
-    //     }
-    //     if(T.population[i] != 0)
-    //         temp /= T.population[i];
-    //     file << i << "\t" << temp << std::endl;
-    // }
-    // file.close();
-    // file2.close();
-    // std::cout << par.second << std::endl;
+    MarkovDistMult markov{pI,pC,T};
+    auto par = iteracion(T, markov);
+    std::cout << "done" << std::endl;
+    std::ofstream file{"out/" + state + "/eigenvectorDiaNoche.txt"};
+    std::ofstream file2{"out/tx/vectorentero.txt"};
+    double temp = 0;
+    for(int i = 0; i < T.N; i++){
+        temp = 0;
+        for(int j = 0; j < T.N; j++){
+            file2 << i << "\t" << j << "\t" << par.first[i*T.N + j] << std::endl;
+        }
+        for(int j = 0; j < T.vecinos[i]; j++){
+            temp += par.first(i*T.N + T.Mvecinos[i][j]) * T.Mpesos[i][j];
+        }
+        if(T.population[i] != 0)
+            temp /= T.population[i];
+        file << i << "\t" << temp << std::endl;
+    }
+    file.close();
+    file2.close();
+    std::cout << par.second << std::endl;
     return 0;
 }
 
